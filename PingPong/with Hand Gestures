@@ -1,22 +1,29 @@
 import cv2
-import face_recognition
+import time
 
 # image = "/Users/anastalib/PycharmProjects/OpencvPython/untitled folder/anas3.jpg"
 image = "/Users/anastalib/PycharmProjects/OpencvPython/untitled folder/anas3.jpg"
 
 
-#class facial_pass:
-#    import face_recognition as FR
-#    def __init__(self, image):
-#        self.image = self.FR.load_image_file(image)
-#        self.image_location = self.FR.face_locations(self.image)[0]
-#        self.image_Encoding = self.FR.face_encodings(self.image)[0]
-#
-#    def matches(self, frame):
-#        match = FR.compare_faces(self.image_Encoding, frame)
-#        if True in match:
-#            print(match)
-#        return match
+class mpFace:
+    import mediapipe as mp
+    def __init__(self):
+        self.myFace = self.mp.solutions.face_detection.FaceDetection()
+        self.drawFace = self.mp.solutions.drawing_utils
+
+    def Marks(self, frame):
+        frameRGB = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = self.myFace.process(frameRGB)
+        faceBoundBoxs = []
+        if results.detections != None:
+            for face in results.detections:
+                self.drawFace.draw_detection(frame, face)
+                bBox = face.location_data.relative_bounding_box
+                topLeft = (int(bBox.xmin * width), int(bBox.ymin * height))
+                bottomRight = (int((bBox.xmin + bBox.width) * width), int((bBox.ymin + bBox.height) * height))
+                faceBoundBoxs.append((topLeft, bottomRight))
+        # print(faceBoundBoxs)
+        return faceBoundBoxs
 
 
 class mpHands:
@@ -47,6 +54,32 @@ class mpHands:
         return myHands, handsType
 
 
+class regognito:
+    import face_recognition as FR
+    def __init__(self):
+        self.image = self.FR.load_image_file("/Users/anastalib/PycharmProjects/OpencvPython/untitled folder/anas3.jpg")
+        self.image_location = self.FR.face_locations(self.image)[0]
+        self.image_Encoding = self.FR.face_encodings(self.image)[0]
+
+    def match(self, frame):
+        unknownFaceBGR = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        faceLocations = self.FR.face_locations(unknownFaceBGR)
+        unknownEncodings = self.FR.face_encodings(frame, faceLocations)
+
+        for faceLocation, unknownEncoding in zip(faceLocations, unknownEncodings):
+            top, right, bottom, left = faceLocation
+
+            # print(faceLocation)
+            # cv2.rectangle(frame, (left, top), (right, bottom), (100, 100, 0), 2)
+            # name = "unknown person"
+            matches = self.FR.compare_faces(self.image_Encoding, unknownEncoding)
+            # print(matches)
+            if True in matches:
+                matchIndex = matches.index(True)
+                print(matchIndex)
+                print(names[matchIndex])
+
+
 width = 1280
 height = 720
 
@@ -55,7 +88,7 @@ Rect_Height = 150
 Rect_Color = (255, 100, 0)
 
 ball_Radius = 25
-ball_color = (255, 0, 0)
+ball_color = (0, 255, 255)
 
 font = cv2.FONT_HERSHEY_PLAIN
 font_height = 5
@@ -63,8 +96,8 @@ font_weight = 5
 font_color = (0, 255, 255)
 Y_left_tip = 0
 Y_Right_tip = 0
-score_left = 0
-score_right = 0
+score_left = 1
+score_right = 1
 
 cam = cv2.VideoCapture(0)
 findHands = mpHands(2)
@@ -72,17 +105,34 @@ xPos = int(width / 2)
 yPos = int(height / 2)
 dX = 25
 dY = 25
+findFace = mpFace()
+recogniseFace = regognito()
+
+L = 1
+M = 1
 
 while True:
     ignore, frame = cam.read()
 
     frame = cv2.resize(frame, (width, height))
-    my_image = facial_pass.matches(frame)
 
+    data = findFace.Marks(frame)
+    print(data)
+    if not data:
+        xPos = int(width / 2)
+        yPos = int(height / 2)
+        score_right = 0
+        score_left = 0
+        cv2.putText(frame, "please show your face", (10, int(height / 2)), font, font_height, font_color, 2)
+    score_x1 = 50
+    score_y1 = 125
+    score_x2 = width - 150
+    score_y2 = 125
     cv2.circle(frame, (xPos, yPos), ball_Radius, ball_color, -1)
-    cv2.putText(frame, str(score_left), (50, 125), font, font_height, font_color, 2)
-    # cv2.rectangle(frame, (100, 70), (10, -30), (0, 255, 0), 2)
-    cv2.putText(frame, str(score_right), (width - 150, 125), font, font_height, font_color, 2)
+    cv2.putText(frame, str(score_left), (score_x1, score_y1), font, font_height, font_color, 2)
+    cv2.rectangle(frame, (score_x1 - 50, score_y1 - 60), (score_x1 + 50, score_y1 + 20), (0, 255, 255), 3)
+    cv2.putText(frame, str(score_right), (score_x2, score_y2), font, font_height, font_color, 2)
+    cv2.rectangle(frame, (score_x2 - 50, score_y2 - 60), (score_x2 + 50, score_y2 + 20), (0, 255, 255), 3)
 
     xPos = xPos + dX
     yPos = yPos + dY
@@ -102,15 +152,24 @@ while True:
         if handType == 'Left':
             handColor = (0, 0, 255)
             Y_Right_tip = hand[8][1]
+    L = L
+    M = M
+    cv2.rectangle(frame, (0, int(Y_left_tip - Rect_Height + L / 2)),
+                  (Rect_Width, int(Y_left_tip + Rect_Height - L / 2)), (Rect_Color), -1)
+    cv2.rectangle(frame, (width - Rect_Width, int(Y_Right_tip - Rect_Height + M / 2)),
+                  (width + Rect_Width, int(Y_Right_tip + Rect_Height - M / 2)), (Rect_Color), -1)
+    if score_right % 5 == 0:
+        L = L * 1.3
 
-    cv2.rectangle(frame, (0, int(Y_left_tip - Rect_Height / 2)),
-                  (Rect_Width, int(Y_left_tip + Rect_Height / 2)), (Rect_Color), -1)
-    cv2.rectangle(frame, (width - Rect_Width, int(Y_Right_tip - Rect_Height / 2)),
-                  (width + Rect_Width, int(Y_Right_tip + Rect_Height / 2)), (Rect_Color), -1)
+    if score_left % 5 == 0:
+        M = M * 1.3
+
     if top_Ball_edge <= 0:
         dY = -dY
     if bottom_Ball_edge >= height:
         dY = -dY
+
+    
 
     if left_Ball_edge <= Rect_Width:
         if yPos >= int(Y_left_tip - Rect_Height / 2) and yPos <= int(Y_left_tip + Rect_Height / 2):
@@ -127,18 +186,11 @@ while True:
             xPos = int(width / 2)
             yPos = int(height / 2)
             score_left = score_left + 1
-    # xPos = xPos + dX
-    # yPos = yPos + dY
 
-    # cv2.circle(frame, hand[8], 25, handColor, 3)
-    # print(hand[8])
-
-    # cv2.rectangle(frame, (hand[8][0], 0), (hand[8][0] + Rect_Width, Rect_Height), Rect_Color, -1)
-
-    # xPos = int(width / 2)
     cv2.imshow('my WEBcam', frame)
     cv2.moveWindow('my WEBcam', 0, 0)
 
     if cv2.waitKey(1) & 0xff == ord('q'):
         break
 cam.release()
+
